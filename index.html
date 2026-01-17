@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CINEVERSE V4</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root { --main-color: #e50914; }
+        body { 
+            background-color: #0a0a0a; 
+            color: #eee; 
+            font-family: 'Outfit', sans-serif;
+            overflow-y: auto !important; /* WAJIB: Biar bisa scroll */
+        }
+        
+        .poster-aspect { aspect-ratio: 2/3; }
+        .glass { background: rgba(10, 10, 10, 0.95); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #e50914; }
+
+        /* Plyr Custom */
+        .plyr--full-ui { border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .plyr__control--overlaid { background: rgba(229, 9, 20, 0.9) !important; }
+        
+        .chapter-active { background-color: #e50914 !important; color: white !important; border-color: #e50914 !important; }
+        
+        /* Grid Responsive */
+        .grid-custom {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* Auto adjust ukuran poster */
+            gap: 1rem;
+        }
+        @media (max-width: 640px) {
+            .grid-custom { grid-template-columns: repeat(3, 1fr); gap: 0.5rem; } /* 3 Kolom di HP */
+        }
+    </style>
+</head>
+<body class="selection:bg-red-900 selection:text-white">
+
+    <nav class="fixed top-0 w-full glass z-50 h-16 flex items-center shadow-lg">
+        <div class="w-full max-w-7xl mx-auto px-4 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="app.loadHome()">
+                <div class="w-8 h-8 bg-red-600 rounded flex items-center justify-center">
+                    <i class="fas fa-play text-white text-xs"></i>
+                </div>
+                <span class="font-bold text-xl text-white">CINE<span class="text-red-600">VERSE</span></span>
+            </div>
+            
+            <form onsubmit="event.preventDefault(); app.handleSearch();" class="flex-1 max-w-md mx-4 relative hidden sm:block">
+                <input type="text" id="searchInput" placeholder="Cari Judul..." 
+                    class="w-full bg-white/10 border border-white/10 rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none focus:border-red-600 text-white">
+                <button type="submit" class="absolute right-3 top-2 text-gray-400 hover:text-white"><i class="fas fa-search"></i></button>
+            </form>
+            
+            <button class="sm:hidden text-white" onclick="document.getElementById('mobileSearch').classList.toggle('hidden')">
+                <i class="fas fa-search text-lg"></i>
+            </button>
+        </div>
+        <div id="mobileSearch" class="absolute top-16 left-0 w-full bg-[#111] border-b border-white/10 hidden p-3">
+            <form onsubmit="event.preventDefault(); app.handleSearch();">
+                <input type="text" id="searchInputMobile" placeholder="Cari..." class="w-full bg-white/10 rounded p-2 text-white text-sm">
+            </form>
+        </div>
+    </nav>
+
+    <main class="pt-24 pb-10 px-4 max-w-7xl mx-auto min-h-screen">
+        
+        <div id="loading" class="hidden text-center py-20">
+            <div class="inline-block w-10 h-10 border-4 border-white/10 border-t-red-600 rounded-full animate-spin"></div>
+        </div>
+
+        <div id="errorState" class="hidden text-center py-20">
+            <p class="text-red-500 mb-4">Gagal memuat data server.</p>
+            <button onclick="location.reload()" class="bg-white/10 px-4 py-2 rounded-full text-sm">Coba Lagi</button>
+        </div>
+
+        <div id="viewList">
+            <h2 id="pageTitle" class="text-xl font-bold text-white mb-6 border-l-4 border-red-600 pl-3">Trending</h2>
+            <div id="gridContainer" class="grid-custom"></div>
+        </div>
+
+        <div id="viewDetail" class="hidden">
+            <button onclick="app.loadHome()" class="mb-6 px-4 py-2 bg-white/5 rounded-full text-sm hover:bg-white/10 transition">
+                <i class="fas fa-arrow-left mr-2"></i> Kembali
+            </button>
+            
+            <div class="flex flex-col md:flex-row gap-8 bg-[#111] p-6 rounded-2xl border border-white/5">
+                <div class="w-40 md:w-56 flex-shrink-0 mx-auto">
+                    <img id="detailPoster" class="w-full rounded-lg shadow-2xl poster-aspect object-cover">
+                </div>
+                <div class="flex-1">
+                    <h1 id="detailTitle" class="text-2xl md:text-4xl font-bold mb-4"></h1>
+                    <div class="flex gap-2 mb-4 text-xs">
+                        <span class="bg-red-600/20 text-red-400 px-2 py-1 rounded border border-red-600/30">Drama</span>
+                        <span id="resumeBadge" class="hidden bg-green-600/20 text-green-400 px-2 py-1 rounded border border-green-600/30 cursor-pointer">Lanjut Nonton</span>
+                    </div>
+                    <p id="detailDesc" class="text-gray-400 text-sm leading-relaxed mb-6"></p>
+                    <button onclick="player.play(0)" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold transition flex items-center gap-2">
+                        <i class="fas fa-play"></i> Mulai Nonton
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-8">
+                <h3 class="font-bold text-lg mb-4 text-white">Episodes</h3>
+                <div id="chapterContainer" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 max-h-[500px] overflow-y-auto custom-scroll pr-2"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="playerOverlay" class="fixed inset-0 bg-black z-[100] hidden flex flex-col justify-center items-center">
+        <div class="w-full max-w-5xl w-full p-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 id="playerEpTitle" class="text-white font-bold">Player</h3>
+                <button onclick="player.close()" class="bg-white/10 hover:bg-red-600 w-8 h-8 rounded flex items-center justify-center transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="aspect-video bg-black shadow-2xl rounded-xl overflow-hidden relative">
+                <video id="plyrVideo" class="plyr" playsinline controls></video>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === KONFIGURASI SERVER SENDIRI ===
+        // Nanti ganti URL ini dengan URL Vercel kamu setelah deploy (Tahap 2)
+        // Untuk sekarang kita pakai relative path '/api' asumsi file ini di-hosting bareng servernya
+        // Atau pakai mode fallback proxy public dulu buat testing
+        
+        const CONFIG = { 
+            // Kalau kamu jalankan di localhost/VSCode Live Server, gunakan public proxy dulu:
+            MODE: 'public_proxy' 
+        };
+        
+        const AppState = { cache: {}, chapters: [], currentId: null, currentEp: 0 };
+
+        const app = {
+            init: () => app.loadHome(),
+
+            fetch: async (endpoint) => {
+                const target = `https://api.dramaku.biz.id${endpoint}`;
+                
+                // STRATEGI:
+                // 1. Jika sudah punya Server Sendiri (Tahap 2), panggil: /api/proxy?path=...
+                // 2. Jika masih HTML biasa, pakai public proxy
+                
+                let url = "";
+                if(CONFIG.MODE === 'vercel') {
+                    url = `/api/proxy?path=${encodeURIComponent(endpoint)}`;
+                } else {
+                    // Pakai proxy public yang lebih stabil
+                    url = `https://corsproxy.io/?${encodeURIComponent(target)}`;
+                }
+
+                try {
+                    const res = await fetch(url);
+                    if(!res.ok) throw new Error("Network");
+                    return await res.json();
+                } catch(e) {
+                    console.error(e);
+                    return null;
+                }
+            },
+
+            setLoading: (show) => {
+                document.getElementById('loading').classList.toggle('hidden', !show);
+                if(show) {
+                    ['viewList', 'viewDetail', 'errorState'].forEach(id => document.getElementById(id).classList.add('hidden'));
+                }
+            },
+
+            loadHome: async () => {
+                app.setLoading(true);
+                const res = await app.fetch('/api/home');
+                const data = res?.data || [];
+                data.forEach(i => AppState.cache[i.bookId || i.id] = i);
+                app.renderGrid(data);
+                document.getElementById('viewList').classList.remove('hidden');
+                app.setLoading(false);
+            },
+
+            handleSearch: async () => {
+                const q = document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value;
+                if(!q) return;
+                app.setLoading(true);
+                document.getElementById('mobileSearch').classList.add('hidden');
+                const res = await app.fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const data = res?.data || [];
+                data.forEach(i => AppState.cache[i.bookId || i.id] = i);
+                app.renderGrid(data);
+                document.getElementById('viewList').classList.remove('hidden');
+                app.setLoading(false);
+            },
+
+            renderGrid: (items) => {
+                const grid = document.getElementById('gridContainer');
+                grid.innerHTML = items.map(item => `
+                    <div class="cursor-pointer group" onclick="app.openDetail('${item.bookId || item.id}')">
+                        <div class="poster-aspect bg-[#222] rounded-lg overflow-hidden relative mb-2">
+                            <img src="${item.cover || item.thumbnail}" class="w-full h-full object-cover transition duration-300 group-hover:scale-110" loading="lazy">
+                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                <i class="fas fa-play-circle text-3xl text-red-600"></i>
+                            </div>
+                        </div>
+                        <h3 class="text-xs font-bold truncate text-gray-300 group-hover:text-white">${item.title || item.name}</h3>
+                    </div>
+                `).join('');
+            },
+
+            openDetail: async (id) => {
+                app.setLoading(true);
+                const cache = AppState.cache[id] || {};
+                
+                document.getElementById('detailTitle').innerText = cache.title || "Loading...";
+                document.getElementById('detailPoster').src = cache.cover || "";
+                document.getElementById('detailDesc').innerText = cache.intro || "Memuat...";
+                
+                // History
+                const saved = localStorage.getItem(`cv_${id}`);
+                const badge = document.getElementById('resumeBadge');
+                if(saved) {
+                    const h = JSON.parse(saved);
+                    badge.classList.remove('hidden');
+                    badge.onclick = () => player.play(h.ep, h.time);
+                    badge.innerText = `Lanjut Eps ${h.ep+1}`;
+                } else badge.classList.add('hidden');
+
+                try {
+                    // Cek Download API dulu
+                    const dl = await app.fetch(`/download/${id}`);
+                    let eps = [], isPrem = false;
+                    
+                    if(dl?.success && dl.data?.length) {
+                        eps = dl.data; isPrem = true;
+                    } else {
+                        // Fallback
+                        const [det, ch] = await Promise.all([
+                            app.fetch(`/api/detail/${id}/v2`),
+                            app.fetch(`/api/chapters/${id}`)
+                        ]);
+                        if(det?.data?.intro) document.getElementById('detailDesc').innerText = det.data.intro;
+                        eps = ch?.data || [];
+                    }
+
+                    AppState.currentId = id;
+                    AppState.chapters = eps;
+                    AppState.isPrem = isPrem;
+
+                    const cont = document.getElementById('chapterContainer');
+                    cont.innerHTML = eps.map((e,i) => `
+                        <button id="ep-btn-${i}" onclick="player.play(${i})" class="p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded text-xs font-bold text-gray-400 hover:text-white transition">
+                            ${i+1}
+                        </button>
+                    `).join('');
+
+                    document.getElementById('viewList').classList.add('hidden');
+                    document.getElementById('viewDetail').classList.remove('hidden');
+                } catch(e) {
+                    document.getElementById('errorState').classList.remove('hidden');
+                } finally { app.setLoading(false); }
+            }
+        };
+
+        const player = {
+            instance: null, hls: null,
+
+            init: () => {
+                if(!player.instance) player.instance = new Plyr('#plyrVideo', { controls: ['play-large', 'play', 'progress', 'current-time', 'fullscreen'] });
+                player.instance.on('timeupdate', () => {
+                    const t = player.instance.currentTime;
+                    if(t > 5 && Math.floor(t)%10===0) localStorage.setItem(`cv_${AppState.currentId}`, JSON.stringify({ep: AppState.currentEp, time: t}));
+                });
+                player.instance.on('ended', () => {
+                    if(AppState.currentEp < AppState.chapters.length-1) player.play(AppState.currentEp+1);
+                });
+            },
+
+            play: async (idx, time=0) => {
+                player.init();
+                AppState.currentEp = idx;
+                const ch = AppState.chapters[idx];
+                
+                document.getElementById('playerOverlay').classList.remove('hidden');
+                document.getElementById('playerEpTitle').innerText = `Episode ${idx+1}`;
+                
+                document.querySelectorAll('#chapterContainer button').forEach(b => b.classList.remove('chapter-active'));
+                document.getElementById(`ep-btn-${idx}`)?.classList.add('chapter-active');
+
+                let url = "";
+                if(AppState.isPrem && ch.videoPath) url = ch.videoPath;
+                else {
+                    const res = await app.fetch(`/api/stream?bookId=${AppState.currentId}&episode=${ch.chapterNo||idx+1}`);
+                    url = res?.data?.video?.url;
+                }
+
+                if(!url) return alert("Video Error");
+
+                const v = document.getElementById('plyrVideo');
+                if(Hls.isSupported() && url.includes('.m3u8')) {
+                    if(player.hls) player.hls.destroy();
+                    player.hls = new Hls();
+                    player.hls.loadSource(url);
+                    player.hls.attachMedia(v);
+                    player.hls.on(Hls.Events.MANIFEST_PARSED, () => { v.play(); if(time) player.instance.currentTime = time; });
+                } else {
+                    v.src = url; v.play(); if(time) player.instance.currentTime = time;
+                }
+            },
+
+            close: () => {
+                if(player.instance) player.instance.pause();
+                document.getElementById('playerOverlay').classList.add('hidden');
+            }
+        };
+
+        app.init();
+    </script>
+</body>
+</html>
