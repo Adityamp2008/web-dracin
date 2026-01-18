@@ -3,141 +3,413 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CINEVERSE V-FINAL</title>
+    <title>Cineverse Gold - Speed</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: { colors: { primary: '#E50914', surface: '#121212', glass: 'rgba(0,0,0,0.85)' } }
+            }
+        }
+    </script>
+
     <style>
-        body { background: #050505; color: #eee; font-family: 'Outfit', sans-serif; overflow-x: hidden; }
-        .grid-poster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
-        @media(min-width: 640px) { .grid-poster { grid-template-columns: repeat(5, 1fr); gap: 15px; } }
-        .poster { aspect-ratio: 2/3; background: #1a1a1a; border-radius: 6px; overflow: hidden; position: relative; }
-        .poster img { width: 100%; height: 100%; object-fit: cover; }
-        video { object-fit: contain !important; } 
-        .plyr--video { height: 100%; }
-        .glass { background: rgba(10,10,10,0.95); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        body { background-color: #000; color: white; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        .glass-nav { background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .card-anim:active { transform: scale(0.96); }
+        .card-anim { transition: transform 0.2s; }
+        
+        /* REELS SNAP */
+        .reels-container { scroll-snap-type: y mandatory; overflow-y: scroll; height: 100vh; width: 100vw; background: #000; scroll-behavior: smooth; }
+        .reel-item { scroll-snap-align: start; height: 100vh; width: 100vw; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
+
+        .loader { width: 32px; height: 32px; border: 3px solid #333; border-bottom-color: #E50914; border-radius: 50%; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* PLAYER OVERLAY */
+        .player-overlay { 
+            position: absolute; inset: 0; 
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.9) 100%);
+            display: flex;
+            justify-content: space-between; 
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; padding: 20px;
+        }
+        .reel-item:hover .player-overlay, .reel-item:active .player-overlay { opacity: 1; pointer-events: auto; }
+        
+        .btn-ctrl {
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(8px);
+            color: white; border: 1px solid rgba(255,255,255,0.15);
+            width: 45px; height: 45px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; transition: all 0.2s; cursor: pointer; pointer-events: auto;
+        }
+        .btn-ctrl:active { background: #E50914; border-color: #E50914; transform: scale(0.9); }
+        
+        .qual-badge { font-size: 10px; font-weight: bold; padding: 4px 8px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; color: #fff; }
+        .qual-badge:hover { background: #E50914; border-color: #E50914; }
+
+        /* SPEED INDICATOR (PETIR) */
+        .speed-indicator {
+            position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: #4ade80;
+            padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px;
+            display: flex; align-items: center; gap: 6px;
+            opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 50;
+        }
+        .speed-indicator.show { opacity: 1; }
     </style>
 </head>
-<body class="flex flex-col h-screen">
-    <nav class="fixed top-0 w-full h-14 glass z-50 flex items-center px-4 justify-between">
-        <div class="font-bold text-lg text-white" onclick="location.reload()">CINE<span class="text-red-600">VERSE</span></div>
-        <button onclick="document.getElementById('search').classList.toggle('hidden')" class="text-white"><i class="fas fa-search"></i></button>
-    </nav>
-    <div id="search" class="fixed top-14 w-full bg-[#111] p-2 hidden z-40 border-b border-white/10">
-        <form onsubmit="event.preventDefault(); app.search()" class="flex gap-2"><input id="q" type="text" placeholder="Cari..." class="flex-1 bg-[#222] text-white px-3 py-2 rounded"><button class="bg-red-600 px-4 rounded text-white font-bold">GO</button></form>
-    </div>
-    <main class="flex-1 pt-14 pb-10 overflow-y-auto bg-black">
-        <div id="home" class="animate-fade-in">
-            <div class="px-3 mt-4 mb-2 border-l-4 border-red-600 ml-2"><h2 class="font-bold text-white">TRENDING</h2></div>
-            <div id="grid" class="grid-poster"></div>
-        </div>
-        <div id="detail" class="hidden">
-            <div class="relative w-full aspect-video bg-[#111]">
-                <img id="bg" class="w-full h-full object-cover opacity-50">
-                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent"></div>
-                <button onclick="app.home()" class="absolute top-2 left-2 bg-black/50 px-3 py-1 rounded text-xs border border-white/20">Back</button>
-                <div class="absolute bottom-0 p-4 w-full">
-                    <h1 id="title" class="text-xl font-bold text-white leading-tight mb-2"></h1>
-                    <button onclick="player.play(0)" class="bg-red-600 text-white px-6 py-2 rounded text-xs font-bold flex items-center gap-2 w-max"><i class="fas fa-play"></i> PUTAR</button>
+<body>
+
+    <nav class="fixed top-0 w-full z-50 glass-nav">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.reload()">
+                    <i class="fa-solid fa-play text-primary text-2xl"></i>
+                    <h1 class="text-lg font-extrabold tracking-tight">CINE<span class="text-primary">VERSE</span></h1>
+                </div>
+                <div class="flex-1 mx-4 relative max-w-md">
+                    <input type="text" id="searchInput" placeholder="Cari..." 
+                        class="w-full bg-white/5 border border-white/10 text-white rounded-full py-2 px-4 pl-9 text-sm focus:border-primary focus:outline-none"
+                        onkeypress="if(event.key==='Enter') doSearch(this.value)">
+                    <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
                 </div>
             </div>
-            <div class="p-4">
-                <p id="desc" class="text-xs text-gray-400 line-clamp-3 mb-4" onclick="this.classList.toggle('line-clamp-3')"></p>
-                <div id="eps" class="grid grid-cols-5 gap-2"></div>
+        </div>
+    </nav>
+
+    <main class="pt-24 pb-20 px-3 min-h-screen">
+        <h2 id="pageTitle" class="text-lg font-bold mb-4 border-l-4 border-primary pl-2">Rekomendasi</h2>
+        <div id="contentGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"></div>
+        <div id="mainLoader" class="flex justify-center mt-12"><div class="loader"></div></div>
+    </main>
+
+    <div id="detailModal" class="fixed inset-0 z-[60] bg-black hidden flex flex-col overflow-y-auto">
+        <div class="relative h-[40vh] shrink-0">
+            <img id="detailCover" src="" class="w-full h-full object-cover opacity-60">
+            <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
+            <button onclick="closeDetail()" class="absolute top-4 left-4 z-20 text-white text-2xl drop-shadow-md"><i class="fa-solid fa-arrow-left"></i></button>
+            <div class="absolute bottom-0 left-0 right-0 p-5">
+                <h1 id="detailTitle" class="text-2xl font-bold leading-tight drop-shadow-lg">Judul</h1>
+                <div class="flex items-center gap-3 mt-2">
+                    <span id="scanStatus" class="text-xs font-bold text-yellow-400 animate-pulse">Menghubungi Server...</span>
+                </div>
             </div>
         </div>
-    </main>
-    <div id="player" class="fixed inset-0 bg-black z-[100] hidden flex flex-col">
-        <div class="absolute top-0 w-full p-4 z-20 flex justify-between"><button onclick="player.close()" class="w-8 h-8 bg-white/10 rounded-full text-white"><i class="fas fa-times"></i></button><span id="ptitle" class="text-xs font-bold text-gray-300 mt-2">EPS 1</span></div>
-        <div class="flex-1 flex items-center justify-center"><video id="vid" class="plyr" playsinline controls></video></div>
+        <div class="flex-1 bg-black px-4 py-4 min-h-[60vh]">
+            <div class="flex justify-between items-end mb-4 border-b border-white/10 pb-2">
+                <h3 class="font-bold text-white">Pilih Episode</h3>
+                <button onclick="forceDeepScan()" class="text-xs text-gray-400 flex items-center gap-1 hover:text-white"><i class="fa-solid fa-rotate"></i> Reload</button>
+            </div>
+            <div id="epGrid" class="grid grid-cols-5 md:grid-cols-8 gap-2 pb-20"></div>
+        </div>
     </div>
+
+    <div id="reelsModal" class="fixed inset-0 z-[100] bg-black hidden">
+        <div id="reelsContainer" class="reels-container"></div>
+        <button onclick="closeReels()" class="absolute top-4 left-4 z-[110] text-white text-2xl drop-shadow-md pointer-events-auto"><i class="fa-solid fa-arrow-left"></i></button>
+    </div>
+
     <script>
-        // OTOMATIS MENDETEKSI SERVER VERCEL
-        // Jika di localhost, dia pakai relative path /api/proxy. 
-        // Jika di Vercel, dia pakai server Vercel.
-        const API = '/api/proxy?path='; 
-        
-        const S = { data: {}, eps: [], id: null };
-        const app = {
-            init: () => app.load('/api/home'),
-            fetch: async (url) => {
+        const API_BASE = "https://api.dramaku.biz.id";
+        let currentChapters = [];
+        let currentMeta = {};
+        let reelsObserver = null;
+        let hls = null;
+
+        document.addEventListener('DOMContentLoaded', () => { loadHome(); initObserver(); });
+
+        // --- 1. HYBRID-X ENGINE (SCANNING TETAP 100% SAMA) ---
+        async function fetchWithRetry(url, retries = 3) {
+            for (let i = 0; i < retries; i++) {
                 try {
-                    // Fallback untuk testing lokal tanpa server (pake public proxy kalau terpaksa)
-                    let target = API + encodeURIComponent(url);
-                    if (window.location.protocol === 'file:') target = `https://corsproxy.io/?${encodeURIComponent('https://api.dramaku.biz.id' + url)}`;
-                    
-                    const res = await fetch(target);
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("HTTP Error");
                     return await res.json();
-                } catch (e) { alert("Gagal memuat. Cek koneksi."); return null; }
-            },
-            load: async (path) => {
-                const res = await app.fetch(path);
-                if (!res?.data) return;
-                const grid = document.getElementById('grid');
-                grid.innerHTML = res.data.map(i => {
-                    S.data[i.bookId||i.id] = i;
-                    return `<div onclick="app.detail('${i.bookId||i.id}')" class="poster cursor-pointer"><img src="${i.cover||i.thumbnail}" loading="lazy"><div class="absolute bottom-0 w-full p-2 bg-gradient-to-t from-black"><p class="text-[10px] font-bold text-white truncate">${i.title||i.name}</p></div></div>`
-                }).join('');
-                document.getElementById('home').classList.remove('hidden');
-                document.getElementById('detail').classList.add('hidden');
-            },
-            search: () => {
-                const q = document.getElementById('q').value;
-                if(q) { document.getElementById('search').classList.add('hidden'); app.load(`/api/search?q=${q}`); }
-            },
-            detail: async (id) => {
-                const d = S.data[id];
-                document.getElementById('title').innerText = d.title;
-                document.getElementById('bg').src = d.cover;
-                document.getElementById('desc').innerText = d.intro || "Loading...";
-                document.getElementById('eps').innerHTML = 'Loading...';
-                document.getElementById('home').classList.add('hidden');
-                document.getElementById('detail').classList.remove('hidden');
-                
-                // Coba Download API dulu
-                let epsData = [], isPrem = false;
-                const dl = await app.fetch(`/download/${id}`);
-                if (dl?.success && dl.data.length) { epsData = dl.data; isPrem = true; }
-                else {
-                    const ch = await app.fetch(`/api/chapters/${id}`);
-                    const dt = await app.fetch(`/api/detail/${id}/v2`);
-                    if(dt?.data?.intro) document.getElementById('desc').innerText = dt.data.intro;
-                    epsData = ch?.data || [];
+                } catch (e) {
+                    if (i === retries - 1) return null;
+                    await new Promise(r => setTimeout(r, 500));
                 }
-                
-                S.eps = epsData; S.id = id; S.prem = isPrem;
-                document.getElementById('eps').innerHTML = epsData.map((e,i) => 
-                    `<button onclick="player.play(${i})" class="bg-[#222] text-gray-300 py-2 rounded text-[10px] border border-white/5 hover:bg-red-600 hover:text-white">${i+1}</button>`
-                ).join('');
-            },
-            home: () => { document.getElementById('detail').classList.add('hidden'); document.getElementById('home').classList.remove('hidden'); }
-        };
-        const player = {
-            ply: null,
-            play: async (i) => {
-                const ep = S.eps[i];
-                document.getElementById('player').classList.remove('hidden');
-                document.getElementById('ptitle').innerText = `EPS ${i+1}`;
-                if (!player.ply) player.ply = new Plyr('#vid', { controls: ['play-large','play','progress','fullscreen'] });
-                
-                let url = S.prem ? ep.videoPath : (await app.fetch(`/api/stream?bookId=${S.id}&episode=${ep.chapterNo||i+1}`))?.data?.video?.url;
-                if(!url) return alert("Error Link");
-                
-                const v = document.getElementById('vid');
-                if(Hls.isSupported() && url.includes('m3u8')) {
-                    const hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
-                } else v.src = url;
-                v.play();
-                
-                // Auto Next
-                player.ply.on('ended', () => { if(i < S.eps.length-1) player.play(i+1); });
-            },
-            close: () => { player.ply?.stop(); document.getElementById('player').classList.add('hidden'); }
-        };
-        app.init();
+            }
+        }
+
+        async function fetchHybridX(bookId) {
+            const statusEl = document.getElementById('scanStatus');
+            const uniqueMap = new Map();
+            const ts = Date.now();
+
+            statusEl.innerText = "🚀 Scanning Data...";
+
+            // ENGINE A: DOWNLOAD API
+            const fetchA = fetchWithRetry(`${API_BASE}/download/${bookId}?_t=${ts}`)
+                .then(j => {
+                    if (j && j.success && j.data) {
+                        j.data.forEach(d => {
+                            const k = parseInt(d.chapterIndex || d.chapterNo || 0);
+                            uniqueMap.set(k, { ...d, isPremium: true });
+                        });
+                    }
+                });
+
+            // ENGINE B: PARALLEL PAGING
+            const fetchB = (async () => {
+                const requests = [];
+                for (let i = 1; i <= 15; i++) {
+                    requests.push(
+                        fetchWithRetry(`${API_BASE}/api/chapters/${bookId}?page=${i}&size=10&_t=${ts}`)
+                        .then(j => j?.data || [])
+                    );
+                }
+                const pages = await Promise.all(requests);
+                pages.forEach(p => p.forEach(d => {
+                    const k = parseInt(d.chapterIndex||d.chapterNo||0);
+                    if(!uniqueMap.has(k)) uniqueMap.set(k, d);
+                }));
+            })();
+
+            await Promise.all([fetchA, fetchB]);
+
+            const finalArr = Array.from(uniqueMap.values());
+            finalArr.sort((a, b) => (parseInt(a.chapterIndex||a.chapterNo||0) - parseInt(b.chapterIndex||b.chapterNo||0)));
+
+            statusEl.innerText = `✅ Total: ${finalArr.length} Eps`;
+            return finalArr;
+        }
+
+        function getVideoSource(chapter, quality = 540) {
+            if (chapter.cdnList && chapter.cdnList.length > 0) {
+                const cdn = chapter.cdnList.find(c => c.isDefault) || chapter.cdnList[0];
+                if (cdn && cdn.videoPathList) {
+                    let v = cdn.videoPathList.find(x => x.quality === quality) || cdn.videoPathList.find(x => x.quality === 540) || cdn.videoPathList[0];
+                    return { url: v.videoPath, q: v.quality };
+                }
+            }
+            if (chapter.videoPath) return { url: chapter.videoPath, q: 'SD' };
+            return null;
+        }
+
+        // --- 2. UI LOGIC ---
+        async function openDetail(id, title, cover) {
+            currentMeta = { id, title, cover };
+            document.getElementById('detailCover').src = cover;
+            document.getElementById('detailTitle').innerText = title;
+            document.getElementById('epGrid').innerHTML = "";
+            document.getElementById('detailModal').classList.remove('hidden');
+            const chapters = await fetchHybridX(id);
+            renderChapters(chapters);
+        }
+
+        function forceDeepScan() { openDetail(currentMeta.id, currentMeta.title, currentMeta.cover); }
+
+        function renderChapters(chapters) {
+            currentChapters = chapters;
+            const grid = document.getElementById('epGrid');
+            grid.innerHTML = "";
+            if (chapters.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center text-gray-500 mt-10">Data kosong.</div>`;
+                return;
+            }
+            chapters.forEach((chap, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "bg-white/10 border border-white/5 rounded py-3 text-sm font-bold hover:bg-primary transition active:scale-95";
+                btn.innerText = idx + 1;
+                btn.onclick = () => startReels(idx);
+                grid.appendChild(btn);
+            });
+        }
+
+        // --- 3. REELS PLAYER (SPEED & GESTURE) ---
+        function startReels(startIdx) {
+            const container = document.getElementById('reelsContainer');
+            container.innerHTML = "";
+            currentChapters.forEach((_, idx) => {
+                const div = document.createElement('div');
+                div.className = "reel-item";
+                div.id = `slide-${idx}`;
+                div.dataset.index = idx;
+                div.innerHTML = `<div class="loader"></div>`;
+                container.appendChild(div);
+            });
+            document.getElementById('reelsModal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById(`slide-${startIdx}`).scrollIntoView();
+                document.querySelectorAll('.reel-item').forEach(el => reelsObserver.observe(el));
+            }, 100);
+        }
+
+        function initObserver() {
+            reelsObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) loadVideo(entry.target, parseInt(entry.target.dataset.index));
+                    else {
+                        const v = entry.target.querySelector('video');
+                        if (v) { if (hls) hls.destroy(); v.pause(); v.remove(); }
+                    }
+                });
+            }, { threshold: 0.6 });
+        }
+
+        function loadVideo(el, idx) {
+            const chap = currentChapters[idx];
+            const vidData = getVideoSource(chap, 540); 
+
+            if (!vidData) { el.innerHTML = `<div class="text-center text-gray-500">Video Error</div>`; return; }
+
+            const isFirst = idx === 0;
+            const isLast = idx === currentChapters.length - 1;
+
+            el.innerHTML = `
+                <div class="w-full h-full relative group bg-black">
+                    <video id="vid-${idx}" class="w-full h-full object-contain" playsinline loop></video>
+                    
+                    <div id="speed-ind-${idx}" class="speed-indicator"><i class="fa-solid fa-bolt"></i> 2X SPEED</div>
+
+                    <div id="gesture-${idx}" class="absolute inset-0 z-0"></div>
+
+                    <div class="player-overlay pointer-events-none">
+                        <div class="pt-8 flex justify-between items-start pointer-events-auto">
+                            <div>
+                                <h3 class="font-bold text-sm truncate w-48 text-white drop-shadow-md">${currentMeta.title}</h3>
+                                <p class="text-xs text-primary font-bold">Eps ${idx+1} • ${vidData.q}p</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="btn-speed-${idx}" onclick="toggleSpeedManual(${idx})" class="qual-badge">1.0x</button>
+                                <button onclick="changeRes(${idx}, 720)" class="qual-badge">HD</button>
+                            </div>
+                        </div>
+
+                        <div class="pb-16 flex flex-col gap-6 z-10 pointer-events-auto">
+                            <div class="flex justify-center items-center gap-8">
+                                <button class="btn-ctrl" onclick="prevEp(${idx})" ${isFirst?'style="opacity:0.3"':''}><i class="fa-solid fa-backward-step"></i></button>
+                                <button class="btn-ctrl bg-white text-black border-white" onclick="togglePlay('vid-${idx}')"><i class="fa-solid fa-play"></i></button>
+                                <button class="btn-ctrl" onclick="nextEp(${idx})" ${isLast?'style="opacity:0.3"':''}><i class="fa-solid fa-forward-step"></i></button>
+                            </div>
+                            <div class="flex justify-center">
+                                <button onclick="backToDetail()" class="text-xs text-gray-300 flex items-center gap-1 bg-black/50 px-4 py-2 rounded-full border border-white/10 active:bg-white/10"><i class="fa-solid fa-list"></i> Daftar Episode</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const vid = document.getElementById(`vid-${idx}`);
+            const gesture = document.getElementById(`gesture-${idx}`);
+            const speedInd = document.getElementById(`speed-ind-${idx}`);
+
+            if (Hls.isSupported() && vidData.url.includes('.m3u8')) {
+                hls = new Hls({ startLevel: -1, capLevelToPlayerSize: true });
+                hls.loadSource(vidData.url);
+                hls.attachMedia(vid);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => vid.play());
+            } else {
+                vid.src = vidData.url;
+                vid.play();
+            }
+            
+            vid.onended = () => nextEp(idx);
+
+            // --- GESTURE LOGIC (TAHAN LAYAR) ---
+            let pressTimer;
+            const startSpeed = (e) => {
+                // Cegah konflik tombol
+                if(e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                pressTimer = setTimeout(() => {
+                    vid.playbackRate = 2.0;
+                    speedInd.classList.add('show');
+                }, 200);
+            };
+            const endSpeed = () => {
+                clearTimeout(pressTimer);
+                // Reset ke 1.0 HANYA JIKA tombol manual tidak aktif
+                const manBtn = document.getElementById(`btn-speed-${idx}`);
+                if (manBtn.innerText !== "2.0x") vid.playbackRate = 1.0;
+                speedInd.classList.remove('show');
+            };
+
+            // Touch & Mouse Events
+            gesture.addEventListener('mousedown', startSpeed);
+            gesture.addEventListener('touchstart', startSpeed, {passive:true});
+            gesture.addEventListener('mouseup', endSpeed);
+            gesture.addEventListener('touchend', endSpeed);
+            gesture.addEventListener('mouseleave', endSpeed);
+            gesture.onclick = () => togglePlay(`vid-${idx}`);
+        }
+
+        // --- MANUAL SPEED ---
+        function toggleSpeedManual(idx) {
+            const vid = document.getElementById(`vid-${idx}`);
+            const btn = document.getElementById(`btn-speed-${idx}`);
+            if (vid.playbackRate === 1.0) {
+                vid.playbackRate = 2.0;
+                btn.innerText = "2.0x";
+                btn.style.color = "#4ade80";
+                btn.style.borderColor = "#4ade80";
+            } else {
+                vid.playbackRate = 1.0;
+                btn.innerText = "1.0x";
+                btn.style.color = "#aaa";
+                btn.style.borderColor = "rgba(255,255,255,0.2)";
+            }
+        }
+
+        // --- UTILS ---
+        function changeRes(idx, quality) {
+            const chap = currentChapters[idx];
+            const data = getVideoSource(chap, quality);
+            const vid = document.getElementById(`vid-${idx}`);
+            if (data && vid) {
+                if (Hls.isSupported() && data.url.includes('.m3u8')) {
+                    hls.loadSource(data.url);
+                    hls.attachMedia(vid);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => vid.play());
+                } else {
+                    vid.src = data.url;
+                    vid.play();
+                }
+                alert(`Ganti ke ${data.q}p`);
+            }
+        }
+
+        function togglePlay(id) { const v=document.getElementById(id); if(v.paused) v.play(); else v.pause(); }
+        function nextEp(i) { document.getElementById(`slide-${i+1}`)?.scrollIntoView({behavior:'smooth'}); }
+        function prevEp(i) { document.getElementById(`slide-${i-1}`)?.scrollIntoView({behavior:'smooth'}); }
+        function closeReels() { document.getElementById('reelsModal').classList.add('hidden'); }
+        function closeDetail() { document.getElementById('detailModal').classList.add('hidden'); }
+        function backToDetail() { closeReels(); }
+
+        async function loadHome() {
+            const d = await fetch(`${API_BASE}/api/home?page=1&size=60`).then(r=>r.json());
+            const g = document.getElementById('contentGrid'); g.innerHTML="";
+            d.data.forEach(i=>{
+                const d = document.createElement('div');
+                d.className="relative aspect-[2/3] bg-white/5 rounded overflow-hidden cursor-pointer card-anim";
+                d.onclick=()=>openDetail(i.bookId||i.id, i.title||i.name, i.cover||i.thumbnail);
+                d.innerHTML=`<img src="${i.cover||i.thumbnail}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div><p class="absolute bottom-2 left-2 right-2 text-xs font-bold truncate">${i.title||i.name}</p>`;
+                g.appendChild(d);
+            });
+            document.getElementById('mainLoader').classList.add('hidden');
+        }
+        
+        async function doSearch(q) {
+            document.getElementById('mainLoader').classList.remove('hidden'); document.getElementById('contentGrid').innerHTML="";
+            const d = await fetch(`${API_BASE}/api/search?q=${q}&keyword=${q}`).then(r=>r.json());
+            document.getElementById('mainLoader').classList.add('hidden');
+            const g = document.getElementById('contentGrid');
+            d.data.forEach(i=>{
+                const d = document.createElement('div');
+                d.className="relative aspect-[2/3] bg-white/5 rounded overflow-hidden cursor-pointer card-anim";
+                d.onclick=()=>openDetail(i.bookId||i.id, i.title||i.name, i.cover||i.thumbnail);
+                d.innerHTML=`<img src="${i.cover||i.thumbnail}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div><p class="absolute bottom-2 left-2 right-2 text-xs font-bold truncate">${i.title||i.name}</p>`;
+                g.appendChild(d);
+            });
+        }
     </script>
 </body>
 </html>
