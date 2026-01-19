@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Cineverse Platinum Final</title>
+    <title>Cineverse Mobile Fix</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -29,9 +29,25 @@
         .card-anim { transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
         .card-anim:active { transform: scale(0.95); }
         
-        /* REELS SNAP */
-        .reels-container { scroll-snap-type: y mandatory; overflow-y: scroll; height: 100vh; width: 100vw; background: #000; scroll-behavior: smooth; }
-        .reel-item { scroll-snap-align: start; height: 100vh; width: 100vw; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
+        /* --- FIX 1: PAKAI DVH BIAR PAS DI BROWSER HP --- */
+        .reels-container { 
+            scroll-snap-type: y mandatory; 
+            overflow-y: scroll; 
+            height: 100dvh; /* Dynamic Height */
+            width: 100vw; 
+            background: #000; 
+            scroll-behavior: smooth; 
+        }
+        .reel-item { 
+            scroll-snap-align: start; 
+            height: 100dvh; /* Dynamic Height */
+            width: 100vw; 
+            position: relative; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            background: #000; 
+        }
 
         .loader { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #FF3B30; border-radius: 50%; animation: rotation 0.8s ease-in-out infinite; }
         @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -41,58 +57,80 @@
             position: absolute; inset: 0; pointer-events: none;
             background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.9) 100%);
             opacity: 1; transition: opacity 0.5s ease-in-out;
+            height: 100dvh; /* Fix tinggi overlay */
         }
         .player-overlay.clean-mode { opacity: 0; }
 
-        /* PROGRESS BAR & TIME (Posisi Baru: MEPET BAWAH) */
+        /* --- FIX 2: POSISI KONTROL LEBIH TINGGI (ANTI KETUTUP) --- */
+        
+        /* Progress Bar & Waktu */
         .progress-area {
             position: absolute; 
-            bottom: 100px; /* TURUN DRASTIS BIAR PAS */
+            bottom: calc(18% + env(safe-area-inset-bottom)); /* Naik sekitar 18% dari bawah */
             left: 20px; right: 20px;
             pointer-events: none; opacity: 1; transition: transform 0.3s;
+            z-index: 55;
         }
         .player-overlay.clean-mode .progress-area { transform: translateY(20px); }
 
-        .time-text { font-size: 10px; font-weight: 700; color: #aaa; margin-bottom: 6px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,0.8); letter-spacing: 0.5px; }
-        
-        .prog-track { width: 100%; height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; backdrop-filter: blur(2px); }
-        .prog-fill { height: 100%; background: #FF3B30; width: 0%; transition: width 0.1s linear; box-shadow: 0 0 10px rgba(255, 59, 48, 0.8); }
-
-        /* CAPSULE CONTROL (Posisi Baru: MEPET BAWAH) */
+        /* Tombol Kapsul Play/Next */
         .control-capsule {
             position: absolute; 
-            bottom: 40px; /* TURUN DRASTIS BIAR ENAK */
+            bottom: calc(8% + env(safe-area-inset-bottom)); /* Naik 8% + Safe Area iPhone */
             left: 50%; transform: translateX(-50%);
-            background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 999px;
-            padding: 6px 12px; display: flex; align-items: center; gap: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: auto; z-index: 50;
+            background: rgba(20, 20, 20, 0.75); backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 999px;
+            padding: 8px 14px; display: flex; align-items: center; gap: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); pointer-events: auto; z-index: 55;
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            padding-bottom: env(safe-area-inset-bottom); /* Aman buat iPhone X ke atas */
         }
         .player-overlay.clean-mode .control-capsule { transform: translate(-50%, 80px); }
 
-        .btn-capsule { color: rgba(255,255,255,0.7); font-size: 18px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s; }
-        .btn-capsule:active { color: white; background: rgba(255,255,255,0.1); transform: scale(0.9); }
+        .time-text { font-size: 11px; font-weight: 700; color: #ddd; margin-bottom: 8px; font-variant-numeric: tabular-nums; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 0.5px; }
+        .prog-track { width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; backdrop-filter: blur(4px); }
+        .prog-fill { height: 100%; background: #FF3B30; width: 0%; transition: width 0.1s linear; box-shadow: 0 0 15px rgba(255, 59, 48, 0.9); }
+
+        .btn-capsule { color: rgba(255,255,255,0.8); font-size: 20px; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s; }
+        .btn-capsule:active { color: white; background: rgba(255,255,255,0.2); transform: scale(0.9); }
         
-        .btn-play-main { width: 50px; height: 50px; background: white; color: black; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 15px rgba(255,255,255,0.3); transition: all 0.2s; }
+        .btn-play-main { width: 55px; height: 55px; background: white; color: black; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 0 20px rgba(255,255,255,0.2); transition: all 0.2s; }
         .btn-play-main:active { transform: scale(0.9); box-shadow: 0 0 5px rgba(255,255,255,0.1); }
 
-        .header-info { position: absolute; top: 60px; left: 20px; pointer-events: auto; max-width: 55%; transition: transform 0.3s; }
+        /* HEADER INFO (Top Area) */
+        .header-info { 
+            position: absolute; 
+            top: calc(20px + env(safe-area-inset-top)); /* Jarak dari atas aman */
+            left: 20px; pointer-events: auto; max-width: 55%; 
+            transition: transform 0.3s; 
+        }
         .player-overlay.clean-mode .header-info { transform: translateY(-20px); }
 
-        .top-controls { position: absolute; top: 60px; right: 20px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; transition: transform 0.3s; pointer-events: auto; }
+        .top-controls { 
+            position: absolute; 
+            top: calc(20px + env(safe-area-inset-top)); 
+            right: 20px; 
+            display: flex; flex-direction: column; gap: 8px; align-items: flex-end; 
+            transition: transform 0.3s; pointer-events: auto; 
+        }
         .player-overlay.clean-mode .top-controls { transform: translateY(-20px); }
 
-        .qual-badge { font-size: 10px; font-weight: 800; padding: 6px 10px; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; cursor: pointer; color: #fff; display: flex; align-items: center; gap: 4px; }
+        .qual-badge { font-size: 10px; font-weight: 800; padding: 6px 12px; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; cursor: pointer; color: #fff; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .qual-badge.active { border-color: #4ade80; color: #4ade80; background: rgba(74, 222, 128, 0.1); }
 
-        .quality-popup { position: absolute; top: 40px; right: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden; display: flex;  opacity: 0; transform: scale(0.9); pointer-events: none; transition: all 0.2s; z-index: 60; width: 80px; }
+        .quality-popup { position: absolute; top: 45px; right: 0; background: rgba(20,20,20,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; display: flex; flex-col; opacity: 0; transform: scale(0.9); pointer-events: none; transition: all 0.2s; z-index: 60; width: 90px; backdrop-filter: blur(10px); }
         .quality-popup.show { opacity: 1; transform: scale(1); pointer-events: auto; }
-        .q-item { padding: 10px; font-size: 12px; font-weight: 600; color: #ccc; border-bottom: 1px solid #222; text-align: center; }
-        .q-item:active { background: #333; color: white; }
+        .q-item { padding: 12px; font-size: 12px; font-weight: 600; color: #ccc; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .q-item:active { background: rgba(255,255,255,0.1); color: white; }
 
-        .speed-flash { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); border: 1px solid rgba(74, 222, 128, 0.3); padding: 6px 16px; border-radius: 30px; display: flex; align-items: center; gap: 8px; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 60; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .speed-flash { 
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%); 
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            padding: 6px 16px; border-radius: 30px; 
+            display: flex; align-items: center; gap: 8px;
+            pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 60;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
         .speed-flash.active { opacity: 1; }
         .speed-text { font-size: 12px; font-weight: 800; color: #4ade80; letter-spacing: 1px; }
         .speed-icon { font-size: 14px; color: #4ade80; animation: pulse 0.5s infinite alternate; }
@@ -342,7 +380,8 @@
 
             let idleTimer;
             function showControls() {
-                overlay.classList.remove('clean-mode'); clearTimeout(idleTimer);
+                overlay.classList.remove('clean-mode');
+                clearTimeout(idleTimer);
                 if (!vid.paused) { idleTimer = setTimeout(() => { overlay.classList.add('clean-mode'); }, 3000); }
             }
 
